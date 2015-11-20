@@ -1,0 +1,223 @@
+
+// **********************************************************
+// Reads reads in a seriers of text files that are created using structure.rb
+// That data is then used to generate the triangles of the correct size and rotation.
+
+int $num_sides;
+int $num_levels;
+
+// arrays to store the data
+float $structure_data[];
+float $level_heights[];
+float $diameters[];
+float $triangles[];
+
+float $lumber_width = 0.333; //4 inches
+
+
+// file paths for the .txt files
+/*
+string $structureFile = "Users/theComputer/Documents/Temple/scripts/structure_data.txt" ;
+string $levelHeightsFile = "Users/theComputer/Documents/Temple/scripts/heights_data.txt" ;
+string $diametersFile = "Users/theComputer/Documents/Temple/scripts/diameters_data.txt" ;
+string $trianglesFile = "Users/theComputer/Documents/Temple/scripts/triagnles_data.txt" ;
+*/
+/*
+string $structureFile = "Users/theComputer/mystuff/structure/structure_data.txt" ;
+string $levelHeightsFile = "Users/theComputer/mystuff/structure/heights_data.txt" ;
+string $diametersFile = "Users/theComputer/mystuff/structure/diameters_data.txt" ;
+string $trianglesFile = "Users/theComputer/mystuff/structure/triagnles_data.txt" ;
+
+*/
+// reads all the text files and assigns the data to the proper array
+global proc float[] readFile(string $filePath)
+{
+    
+    
+    // Open File
+    $fileId = `fopen $filePath "r"` ;
+   
+    // Define String Array
+    string $dataArray[] ;
+    
+    // Define Float Array
+    float $floatArray[] ;
+
+    // Get The First Line
+    string $nextLine = `fgetline $fileId` ;
+
+    // Loop Until The String Size Is Zero (No Data On That Line)
+    while (size($nextLine) > 0) {
+
+    // Strip Whitespace From The Beginning And End Of The Line
+    string $cleanLine = strip($nextLine) ;
+
+    // Add To Array
+    $dataArray[size($dataArray)] = $cleanLine ;
+    
+    //convert to floats and add to float array
+    $floatArray[size($floatArray)] = (float)$cleanLine ;
+
+    // Get Next Line And Continue
+    $nextLine = `fgetline $fileId` ;
+    
+    }
+    
+    fclose($fileId);
+    
+    return $floatArray;
+}
+
+ $structure_data = readFile($structureFile);
+ $level_heights = readFile($levelHeightsFile);
+ $diameters = readFile($diametersFile);
+ $triangles = readFile($trianglesFile);
+ 
+ $num_sides = (int)$structure_data[0];
+ $num_levels = (int)$structure_data[1];
+ 
+ //generates a triangle and positions is correctly
+ global proc triangle(float $height, float $width, float $ang, float $tilt, float $lumber_width, int $number){
+     float $ypos = $height /2 ;
+     float $piviot = -1 * $ypos;
+     float $xpos = $width / 2;
+     $ang = $ang;
+     
+     string $base_name = "Segment";
+     string $g_name = "g_";
+     
+   
+     
+    polyCube  -n "temp1" -w $lumber_width -h $height -d $lumber_width -cuv 4;
+    
+    xform -t 0 $ypos 0; 
+    xform -piv 0 $piviot 0 ;
+    rotate 0 0 $ang;
+    xform -t $xpos $ypos 0; 
+   
+    
+    $xpos = -1 *$xpos;
+    $ang = -1 *$ang;
+    
+   
+    //string $name2 = $base_name + "_" + (string)$number + "_b" ;
+    polyCube  -n "temp2" -w $lumber_width -h $height -d $lumber_width -cuv 4;
+    
+    xform -t 0 $ypos 0; 
+    xform -piv 0 $piviot 0 ;
+    rotate 0 0 $ang;
+    xform -t $xpos $ypos 0; 
+    
+    
+   //$name3 = $base_name + "_" + (string)$number + "_c" ;
+   polyCube  -n "temp3" -w $width -h $lumber_width -d $lumber_width -cuv 4;
+   
+   //select("*(string)$number*");
+    
+    string $this_group;
+    $this_group = $g_name + (string)$number;
+    select ("temp*");
+    group -n $this_group; 
+    
+     string $name1 = $base_name + "_" + (string)$number + "_a" ;
+     string $name2 = $base_name + "_" + (string)$number + "_b" ;
+     string $name3 = $base_name + "_" + (string)$number + "_c" ;
+     rename temp1 $name1;  rename temp2 $name2;  rename temp3 $name3;
+     
+     select $this_group;
+     xform -piv 0 0 0 ;
+     rotate $tilt 0 0;
+     
+     
+ }
+ 
+ //selects a triangle and generates a radial array.
+ global proc radial(int $level_num,int $num_sides, float $diameter, float $height){
+     
+    string $this_group;
+    string $g_name = "g_";
+    $this_group = $g_name + (string)$level_num;
+    //rename $this_group 
+    select $this_group;
+    string $new_name = $this_group + "_";
+    rename $new_name;
+    
+    float $radius = -1 * $diameter/2;
+    float $angle = 360.0 / $num_sides;
+    xform -t 0 $height  $radius;
+   // $radius = $radius *-1;
+    //xform  -a -piv  0 0 0 ;
+   //move -a 0 0 $radius  $new_name.rotatePivot ;
+    
+    int $sides = $num_sides -1;
+   for( $i=1; $i<= $sides; ++$i )
+		{
+		    duplicate $new_name;
+		    string $name = $new_name + (string)$i;
+		    select $name;
+		    
+		    $a = $angle * $i; 
+		    
+		    
+            rotate -a -p  0 0 0 -rotateY $a;
+           	
+		}  
+		
+		
+		 
+ }
+ 
+ //clears the scene 
+		 select -all;
+         delete;
+
+ 
+ //generates all the necessary triangles
+    for( $i=0; $i<= $num_levels ; ++$i )
+		{
+		    $ticker = $i*4;
+		    
+		   triangle($triangles[0 + $ticker],$triangles[1 + $ticker],$triangles[2 + $ticker], $triangles[3 + $ticker],$lumber_width, $i+1);  
+		}
+	 
+	 
+	 $i = 0;
+//creates the radial array for each level	 
+	 float $h = 0;	
+	 
+	 for( $i=0; $i<= 6; ++$i ){
+	    
+	     if($i == 0){
+	         $h = 0;
+	          }
+	      else{
+	            $h +=  $level_heights[$i -1]; 
+	          }
+	    
+	    radial($i+1, $num_sides, $diameters[$i], $h);
+		}	
+		
+		
+		
+	
+// for testing and debugging
+// radial(int $level_num,int $num_sides, float $diameter, float $height){
+//triangle(23.4263921318743,19.14525314300462, 24.1, 10.94839494093147,$lumber_width, 1);
+//radial(1,13,$diameters[0],0);
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
